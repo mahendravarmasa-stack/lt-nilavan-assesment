@@ -148,22 +148,19 @@ git clone https://github.com/Leadtap/lt-nilavan.git
 cd lt-nilavan/lt-nilavan-live
 ```
 
-### 4.2 nstall and Build
+### 4.2 Install and Build
 
 ```bash
 npm install
 npm run build
 ```
 
-### 4.3 tart with PM2
+### 4.3 Start with PM2
 
 ```bash
 pm2 start npm --name "nextjs-app" -- start
 pm2 save
 pm2 startup
-
-# Copy-paste the command it outputs exactly
-
 pm2 list
 pm2 logs nextjs-app -- line 20
 ```
@@ -187,12 +184,13 @@ Expected PM2 output:
 ```bash
 sudo apt install nginx -y
 sudo systemctl enable nginx
+sudo systemctl start nginx
 ```
 
 ### 5.2 Create Site Config
 
 ```bash
-sudo nano /etc/nginx/sites-available/lt-nilavan
+sudo nano /etc/nginx/sites-available/nextjs-app
 ```
 
 Paste:

@@ -257,8 +257,6 @@ sudo systemctl reload nginx
 
 ### 6.1 Point Domain to Server
 
-In your DNS registrar add an A record: `mahendrvarmastack.co.in` → EC2 Public IP. Wait ~5 minutes.
-
 ### 6.2 Install and Run Certbot
 
 ```bash

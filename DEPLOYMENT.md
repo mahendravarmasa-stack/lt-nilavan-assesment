@@ -1,7 +1,7 @@
 # DEPLOYMENT.md
-# lt-nilavan — Production Deployment Guide
+# DevOps Assesment
 
-**Stack:** Ubuntu 22.04 LTS · Nginx · PM2 · Node.js 18 (nvm) · Let's Encrypt SSL  
+**Stack:** Ubuntu 2604 LTS · Nginx · PM2 · Node.js 18 (nvm) · Let's Encrypt SSL  
 **App:** Next.js 15 (lt-nilavan)
 
 ---

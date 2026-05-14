@@ -11,22 +11,22 @@
 ### 1.1 Launch EC2
 
 1. AWS Console → EC2 → **Launch Instance**
-2. AMI: **Ubuntu Server 22.04 LTS (HVM), SSD**
-3. Instance type: **t2.micro** (free tier)
-4. Key pair: create new → download `nilavan-key.pem`
+2. AMI: **Ubuntu Server 26.04 LTS (HVM), SSD**
+3. Instance type: **t3.micro** (free tier)
+4. Key pair: create new → download `office.pem`
 5. Security Group inbound rules:
 
 | Type | Protocol | Port | Source |
 |------|----------|------|--------|
-| SSH | TCP | 2222 | My IP |
+| SSH | TCP | 2204 | My IP |
 | HTTP | TCP | 80 | 0.0.0.0/0 |
 | HTTPS | TCP | 443 | 0.0.0.0/0 |
 
 ### 1.2 First Login
 
 ```bash
-chmod 400 nilavan-key.pem
-ssh -i nilavan-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+chmod 400 office.pem
+ssh -i office.pem ubuntu@YOUR_EC2_PUBLIC_IP
 ```
 
 ---
@@ -39,27 +39,27 @@ ssh -i nilavan-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 sudo apt update && sudo apt upgrade -y
 ```
 
-### 2.2 Create Non-Root Deploy User
+### 2.2 Create Non-Root devuser 
 
 ```bash
-sudo adduser deploy
-sudo usermod -aG sudo deploy
+sudo adduser devuser
+sudo usermod -aG sudo devuser
 ```
 
-### 2.3 Configure SSH Key for Deploy User
+### 2.3 Configure SSH Key for devuser 
 
 ```bash
 # On LOCAL machine — get your public key
 cat ~/.ssh/id_rsa.pub
 
 # On SERVER — add it for deploy user
-sudo mkdir -p /home/deploy/.ssh
-sudo nano /home/deploy/.ssh/authorized_keys
+sudo mkdir -p /home/devuser/.ssh
+sudo nano /home/devuser/.ssh/authorized_keys
 # Paste your public key and save
 
-sudo chmod 700 /home/deploy/.ssh
-sudo chmod 600 /home/deploy/.ssh/authorized_keys
-sudo chown -R deploy:deploy /home/deploy/.ssh
+sudo chmod 700 /home/devuser/.ssh
+sudo chmod 600 /home/devuser/.ssh/authorized_keys
+sudo chown -R deploy:deploy /home/devuser/.ssh
 ```
 
 ### 2.4 Harden SSH
@@ -70,7 +70,7 @@ sudo nano /etc/ssh/sshd_config
 
 Set these values:
 ```
-Port 2222
+Port 2204
 PermitRootLogin no
 PasswordAuthentication no
 PubkeyAuthentication yes
@@ -80,7 +80,7 @@ PubkeyAuthentication yes
 sudo systemctl restart sshd
 
 # TEST in a NEW terminal before closing current session:
-ssh -i nilavan-key.pem -p 2222 deploy@YOUR_EC2_PUBLIC_IP
+ssh -i office.pem -p 2204 devuser@YOUR_EC2_PUBLIC_IP
 ```
 
 ### 2.5 UFW Firewall
@@ -88,7 +88,7 @@ ssh -i nilavan-key.pem -p 2222 deploy@YOUR_EC2_PUBLIC_IP
 ```bash
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow 2222/tcp comment 'SSH'
+sudo ufw allow 2204/tcp comment 'SSH'
 sudo ufw allow 80/tcp  comment 'HTTP'
 sudo ufw allow 443/tcp comment 'HTTPS'
 sudo ufw enable
@@ -100,7 +100,7 @@ Expected output:
 Status: active
 To                         Action      From
 --                         ------      ----
-2222/tcp                   ALLOW IN    Anywhere
+2204/tcp                   ALLOW IN    Anywhere
 80/tcp                     ALLOW IN    Anywhere
 443/tcp                    ALLOW IN    Anywhere
 ```
@@ -143,53 +143,39 @@ npm install -g pm2
 
 ```bash
 sudo apt install git -y
-cd /home/deploy
+cd /home/devuser
 git clone https://github.com/Leadtap/lt-nilavan.git
 cd lt-nilavan/lt-nilavan-live
 ```
 
-### 4.2 Configure Environment
-
-```bash
-nano .env.local
-```
-
-Add:
-```env
-SENDGRID_API_KEY=your_sendgrid_api_key_here
-SENDGRID_TO_EMAIL=info@nilavanrealtors.com
-```
-
-```bash
-chmod 600 .env.local
-```
-
-### 4.3 Install and Build
+### 4.2 nstall and Build
 
 ```bash
 npm install
 npm run build
 ```
 
-### 4.4 Start with PM2
+### 4.3 tart with PM2
 
 ```bash
-pm2 start npm --name "lt-nilavan" -- start
+pm2 start npm --name "nextjs-app" -- start
 pm2 save
 pm2 startup
+
 # Copy-paste the command it outputs exactly
 
 pm2 list
-pm2 logs lt-nilavan --lines 20
+pm2 logs nextjs-app -- line 20
 ```
 
 Expected PM2 output:
 ```
-┌────┬──────────────┬─────────┬─────────┬──────────┐
-│ id │ name         │ version │ mode    │ status   │
-├────┼──────────────┼─────────┼─────────┼──────────┤
-│ 0  │ lt-nilavan   │ 0.1.0   │ fork    │ online   │
-└────┴──────────────┴─────────┴─────────┴──────────┘
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ nextjs-app    │ default     │ 0.39.0  │ fork    │ 319339   │ 8h     │ 1    │ online    │ 0%       │ 36.2mb   │ devuser  │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+
 ```
 
 ---
@@ -211,46 +197,55 @@ sudo nano /etc/nginx/sites-available/lt-nilavan
 
 Paste:
 ```nginx
+
 server {
     listen 80;
-    server_name YOUR_DOMAIN.com www.YOUR_DOMAIN.com;
+    server_name mahendrvarmastack.co.in;
 
-    # Block .git directory — prevents source code exposure
-    location ~ /\.git {
-        deny all;
-        return 404;
-    }
+    # Redirect all HTTP traffic to HTTPS
+    return 301 https://$host$request_uri;
+}
 
-    # Block all hidden files
-    location ~ /\. {
-        deny all;
-        return 404;
-    }
+server {
+    listen 443 ssl http2;
+    server_name mahendrvarmastack.co.in;
 
-    # Security headers
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/mahendrvarmastack.co.in/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mahendrvarmastack.co.in/privkey.pem;
+
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Security Headers
     add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "frame-ancestors 'none';" always;
 
-    # Proxy to Next.js
+    # Block access to .git directory
+    location ~ /\.git {
+        deny all;
+        return 403;
+    }
+
+    # Reverse proxy to Next.js app
     location / {
         proxy_pass http://localhost:3000;
+
         proxy_http_version 1.1;
+
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 }
+
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/lt-nilavan /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/nextjs-app /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
@@ -262,13 +257,13 @@ sudo systemctl reload nginx
 
 ### 6.1 Point Domain to Server
 
-In your DNS registrar add an A record: `yourdomain.com` → EC2 Public IP. Wait ~5 minutes.
+In your DNS registrar add an A record: `mahendrvarmastack.co.in` → EC2 Public IP. Wait ~5 minutes.
 
 ### 6.2 Install and Run Certbot
 
 ```bash
 sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+sudo certbot --nginx -d mahendrvarmastack.co.in -d www.mahendrvarmastack.co.in
 # Choose option 2 (redirect HTTP to HTTPS)
 
 sudo certbot renew --dry-run
@@ -293,43 +288,22 @@ sudo systemctl status nginx
 sudo certbot certificates
 
 # HTTPS loads
-curl -I https://yourdomain.com
+curl -I https://mahendrvarmastack.co.in
 
 # HTTP redirects to HTTPS
-curl -I http://yourdomain.com
+curl -I http://mahendrvarmastack.co.in
 # Expected: 301 Moved Permanently
 
 # .git is blocked
-curl -I https://yourdomain.com/.git/config
+curl -I https://mahendrvarmastack.co.in/.git/config
 # Expected: 404 Not Found
 
 # Security headers present
-curl -I https://yourdomain.com | grep -E "X-Frame|X-Content|Strict"
+curl -I https://mahendrvarmastack.co.in | grep -E "X-Frame|X-Content|Strict"
 ```
 
 ---
 
-## Phase 8 — Ongoing Operations
-
-```bash
-# View logs
-pm2 logs lt-nilavan
-
-# Restart app
-pm2 restart lt-nilavan
-
-# Deploy updates
-cd /home/deploy/lt-nilavan/lt-nilavan-live
-git pull origin main
-npm install
-npm run build
-pm2 restart lt-nilavan
-
-# Monitor dashboard
-pm2 monit
-```
-
----
 
 ## Architecture Diagram
 
@@ -337,7 +311,7 @@ pm2 monit
 Internet
     │
     ▼
-[AWS Security Group] ── ports 80, 443, 2222 only
+[AWS Security Group] ── ports 80, 443, 2204 only
     │
     ▼
 [UFW Firewall] ── same rules (defence in depth)
@@ -365,4 +339,4 @@ Internet
 | Non-root deploy user | Limits blast radius if app is compromised |
 | UFW + AWS Security Group | Two firewall layers — defence in depth |
 | Let's Encrypt over paid SSL | Free, auto-renewing, trusted by all browsers |
-| Custom SSH port 2222 | Reduces automated bot scanning noise on port 22 |
+| Custom SSH port 2204 | Reduces automated bot scanning noise on port 22 |

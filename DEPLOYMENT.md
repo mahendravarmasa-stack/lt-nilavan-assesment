@@ -1,7 +1,7 @@
 # DEPLOYMENT.md
-# DevOps Assesment
+# DevOps Assessment — lt-nilavan
 
-**Stack:** Ubuntu 26.04 LTS · Nginx · PM2 · Node.js 18 (nvm) · Let's Encrypt SSL  
+**Stack:** Ubuntu 24.04 LTS · Nginx · PM2 · Node.js 18 (nvm) · Let's Encrypt SSL
 **App:** Next.js 15 (lt-nilavan)
 
 ---
@@ -11,8 +11,8 @@
 ### 1.1 Launch EC2
 
 1. AWS Console → EC2 → **Launch Instance**
-2. AMI: **Ubuntu Server 26.04 LTS (HVM), SSD**
-3. Instance type: **t3.micro** (free tier)
+2. AMI: **Ubuntu Server 24.04 LTS (HVM), SSD**
+3. Instance type: **t3.micro**
 4. Key pair: create new → download `office.pem`
 5. Security Group inbound rules:
 
@@ -39,27 +39,27 @@ ssh -i office.pem ubuntu@YOUR_EC2_PUBLIC_IP
 sudo apt update && sudo apt upgrade -y
 ```
 
-### 2.2 Create Non-Root devuser 
+### 2.2 Create Non-Root User
 
 ```bash
 sudo adduser devuser
 sudo usermod -aG sudo devuser
 ```
 
-### 2.3 Configure SSH Key for devuser 
+### 2.3 Configure SSH Key for devuser
 
 ```bash
 # On LOCAL machine — get your public key
 cat ~/.ssh/id_rsa.pub
 
-# On SERVER — add it for deploy user
+# On SERVER — add it for devuser
 sudo mkdir -p /home/devuser/.ssh
 sudo nano /home/devuser/.ssh/authorized_keys
 # Paste your public key and save
 
 sudo chmod 700 /home/devuser/.ssh
 sudo chmod 600 /home/devuser/.ssh/authorized_keys
-sudo chown -R deploy:deploy /home/devuser/.ssh
+sudo chown -R devuser:devuser /home/devuser/.ssh
 ```
 
 ### 2.4 Harden SSH
@@ -89,8 +89,8 @@ ssh -i office.pem -p 2204 devuser@YOUR_EC2_PUBLIC_IP
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow 2204/tcp comment 'SSH'
-sudo ufw allow 80/tcp  comment 'HTTP'
-sudo ufw allow 443/tcp comment 'HTTPS'
+sudo ufw allow 80/tcp   comment 'HTTP'
+sudo ufw allow 443/tcp  comment 'HTTPS'
 sudo ufw enable
 sudo ufw status verbose
 ```
@@ -109,10 +109,10 @@ To                         Action      From
 
 ## Phase 3 — Install Runtime
 
-### 3.1 Switch to Deploy User
+### 3.1 Switch to devuser
 
 ```bash
-su - deploy
+su - devuser
 ```
 
 ### 3.2 Install nvm + Node.js 18
@@ -161,8 +161,10 @@ npm run build
 pm2 start npm --name "nextjs-app" -- start
 pm2 save
 pm2 startup
+# Copy-paste the exact command it outputs
+
 pm2 list
-pm2 logs nextjs-app -- line 20
+pm2 logs nextjs-app --lines 20
 ```
 
 Expected PM2 output:
@@ -172,7 +174,6 @@ Expected PM2 output:
 ├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
 │ 0  │ nextjs-app    │ default     │ 0.39.0  │ fork    │ 319339   │ 8h     │ 1    │ online    │ 0%       │ 36.2mb   │ devuser  │ disabled │
 └────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-
 ```
 
 ---
@@ -195,7 +196,6 @@ sudo nano /etc/nginx/sites-available/nextjs-app
 
 Paste:
 ```nginx
-
 server {
     listen 80;
     server_name mahendrvarmastack.co.in;
@@ -230,16 +230,13 @@ server {
     # Reverse proxy to Next.js app
     location / {
         proxy_pass http://localhost:3000;
-
         proxy_http_version 1.1;
-
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
     }
 }
-
 ```
 
 ```bash
@@ -254,6 +251,12 @@ sudo systemctl reload nginx
 ## Phase 6 — SSL Certificate
 
 ### 6.1 Point Domain to Server
+
+In your DNS registrar, add an **A record**:
+- Host: `mahendrvarmastack.co.in` → Value: EC2 Public IP
+- Host: `www.mahendrvarmastack.co.in` → Value: EC2 Public IP
+
+Wait ~5 minutes for DNS propagation before running Certbot.
 
 ### 6.2 Install and Run Certbot
 
@@ -292,14 +295,13 @@ curl -I http://mahendrvarmastack.co.in
 
 # .git is blocked
 curl -I https://mahendrvarmastack.co.in/.git/config
-# Expected: 404 Not Found
+# Expected: 403 Forbidden
 
 # Security headers present
-curl -I https://mahendrvarmastack.co.in | grep -E "X-Frame|X-Content|Strict"
+curl -I https://mahendrvarmastack.co.in | grep -E "X-Frame|X-Content|Referrer"
 ```
 
 ---
-
 
 ## Architecture Diagram
 
@@ -329,10 +331,12 @@ Internet
 
 | Decision | Reason |
 |----------|--------|
+| t3.micro over t2.micro | Better CPU burst performance; more reliable during Next.js build and runtime under load |
+| Ubuntu 24.04 LTS | Latest LTS release — 5 years of security updates, widely supported |
 | nvm over apt Node.js | Allows version pinning; easy to upgrade without breaking system packages |
-| PM2 over systemd directly | Simpler log management, easy restart/monitoring commands |
-| Nginx as reverse proxy | Handles SSL termination, security headers; Next.js not exposed directly |
-| Non-root deploy user | Limits blast radius if app is compromised |
-| UFW + AWS Security Group | Two firewall layers — defence in depth |
+| PM2 over systemd directly | Simpler log management, built-in monitoring, easy restart commands |
+| Nginx as reverse proxy | Handles SSL termination and security headers; Next.js port 3000 never exposed publicly |
+| Non-root devuser | Limits blast radius if app is compromised — attacker cannot reach system files |
+| UFW + AWS Security Group | Two firewall layers — if one is misconfigured the other still protects |
 | Let's Encrypt over paid SSL | Free, auto-renewing, trusted by all browsers |
-| Custom SSH port 2204 | Reduces automated bot scanning noise on port 22 |
+| Custom SSH port 2204 | Reduces automated bot scanning noise on default port 22 |

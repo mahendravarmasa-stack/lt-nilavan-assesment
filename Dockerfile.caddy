@@ -1,0 +1,6 @@
+# Caddy reverse proxy — fronts the PM2 Next.js container
+FROM caddy:2-alpine
+
+COPY Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80 443

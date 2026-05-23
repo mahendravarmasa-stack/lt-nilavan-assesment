@@ -1,0 +1,25 @@
+name: Deploy
+
+on:
+  push:
+    branches: [release]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, ip-172-31-15-177]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create .env from secrets
+        run: |
+          cat > .env <<EOF
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_TO_EMAIL=${{ secrets.SENDGRID_TO_EMAIL }}
+          EOF
+
+      - name: Rebuild and run Docker
+        run: |
+          set -e
+          docker compose build
+          docker compose up -d --remove-orphans

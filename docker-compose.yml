@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nilavan-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    expose:
+      - "3000"
+    networks:
+      - web
+
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    container_name: nilavan-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - app
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
